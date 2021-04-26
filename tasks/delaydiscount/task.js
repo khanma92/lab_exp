@@ -1,29 +1,28 @@
-const taskinfo = {
+// DEFINE TASK (required)
+var taskinfo = {
     type: 'task', // 'task', 'survey', or 'study'
     uniquestudyid: 'delaydiscount', // unique task id: must be IDENTICAL to directory name
-    desc: 'delay discounting task staircase with 6 delays', // brief description of task
+    description: 'delay discounting task staircase with 5 delays', // brief description of task
     condition: null, // experiment/task condition
     redirect_url: "/tasks/delaydiscount/viz" // set to false if no redirection required
 };
-
 var info_ = create_info_(taskinfo);  // initialize subject id and task parameters
-
-const debug = false;  // debug mode to print messages to console and display json data at the end
-const black_background = true; // if true, white text on black background
-var font_colour = 'black';
-if (black_background) {
-    document.body.style.backgroundColor = "black";
-    var font_colour = 'white';
+if (info_.subject && info_.time) {
+    taskinfo.redirect_url = taskinfo.redirect_url + '?id=' + info_.subject + '&time=' + info_.time;
 }
+const debug = false;  // true to print messages to console and display json results
+var font_colour = "black";
+var background_colour = "white";
+set_colour(font_colour, background_colour);
 
-// TASK PARAMETERSs
+// DEFINE TASK PARAMETERS (required)
 const large_reward = 100; //Large reward after cost.
 var costs = [2, 10, 15, 50, 100];  //costs in days.
 // var costs = [2, 10]; // I tend to use fewer when debugging (so the task finishes faster)
 const trials_per_cost = 6; //Number of trials per cost/delays.
-const practice_trials = 3; //Number of practice trials.
+const n_practice_trials = 5; //Number of practice trials.
 
-// parameters below typically don't need to be changed
+// DO NOT EDIT BELOW UNLESS YOU KNOW WHAT YOU'RE DOING 
 var small_reward = null;  //Small reward without cost.
 const quantile_range = [0.40, 0.60] //Quantiles within window to draw values from.
 costs = jsPsych.randomization.shuffle(costs);
@@ -39,39 +38,23 @@ if (reverse_sides) {
     stimuli_sides = "left_small_right_large";
 }
 
-// add data to all trials
-jsPsych.data.addProperties({
+jsPsych.data.addProperties({  // do not edit this section unnecessarily!
     subject: info_.subject,
     type: taskinfo.type,
     uniquestudyid: taskinfo.uniquestudyid,
-    desc: taskinfo.desc,
-    condition: taskinfo.condition,
-    info_: info_,
+    description: taskinfo.description,
+    condition: taskinfo.condition,    
 });
-
-// create experiment timeline
-var timeline = [];
-const html_path = "../../tasks/delaydiscount/consent.html";
-timeline = create_consent(timeline, html_path);
 
 var instructions = {
     type: "instructions",
     pages: [
         generate_html("Welcome!", font_colour, 25, [0, 0]) + generate_html("Click next or press the right arrow key to ontinue.", font_colour),
-        generate_html("In this task, you'll have to decide which option you prefer.", font_colour) + generate_html("For example, you'll see two options: $30.00 in 3 days or $2.40 in 0 days (today).", font_colour) + generate_html("Choosing $30 days in 3 days means you'll wait 3 days so you can get $30. Choosing $2.40 means you will receive $2.40 today.", font_colour) + generate_html("You'll use the left/right arrow keys on the keyboard to indicate which option you prefer (left or right option, respectively).", font_colour),
-        generate_html("Next up is a practice trial.", font_colour) + generate_html("Your data will NOT be recorded.", font_colour) + generate_html("Click next or press the right arrow key to begin.", font_colour)
+        generate_html("In this task, you'll have to decide which option you prefer.", font_colour) + generate_html("For example, you'll see two options: <strong>$30.00 in 3 days</strong> or <strong>$2.40 in 0 days (today)</strong>.", font_colour) + generate_html("Choosing $30 days in 3 days means you'll wait 3 days so you can get $30. Choosing $2.40 means you will receive $2.40 today.", font_colour) + generate_html("You'll use the left/right arrow keys on the keyboard to indicate which option you prefer (left or right option, respectively).", font_colour),
+        generate_html("You'll now practice making these decisions.", font_colour) + generate_html("Because it's practice, your data will NOT be recorded, so feel free to explore the options.", font_colour) + generate_html("Click next or press the right arrow key to begin.", font_colour)
     ],
     show_clickable_nav: true,
     show_page_number: true,
-};
-
-var instructions2 = {
-    type: "instructions",
-    pages: [
-        generate_html("That was the practice trial.", font_colour) + generate_html("Click next or press the right arrow key to begin the experiment.", font_colour) + generate_html("Your data WILL be recorded this time.", font_colour)
-    ],
-    show_clickable_nav: true,
-    show_page_number: false,
 };
 
 var trial = {
@@ -131,6 +114,7 @@ var trial = {
         data.reward_window = [reward_window[0], reward_window[1]];
         indifference = (reward_window[0] + reward_window[1]) / 2;
         data.indifference = indifference;
+        data.indifference_ratio = indifference / large_reward;
         if (n_trial == trials_per_cost) { // after 5 trials, move to next cost/delay
             n_trial = 0; // reset trial counter
             n_cost += 1;
@@ -146,9 +130,7 @@ var trial = {
 
 // create practice trials
 var practice_trial = jsPsych.utils.deepCopy(trial);
-delete practice_trial.on_finish;
-delete practice_trial.timeline;
-practice_trial.repetitions = practice_trials;
+practice_trial.repetitions = n_practice_trials;
 practice_trial.timeline = [
     {
         stimulus: function () {
@@ -163,32 +145,84 @@ practice_trial.timeline = [
     }];
 practice_trial.on_finish = function (data) { data.event = 'practice'; };
 
-// create task timeline
+var practice_end_instructions = {
+    type: "instructions",
+    pages: [
+        generate_html("That's the end of the practice session.", font_colour) + generate_html("Click next or press the right arrow key to begin the actual session.", font_colour) + generate_html("Your data WILL be recorded from now on.", font_colour)
+    ],
+    show_clickable_nav: true,
+    show_page_number: false,
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// create timeline and events/objects for study (the first next lines are always the same! consent then check whether it's same person)
+var timeline = [];
+timeline = create_consent(timeline, taskinfo);
+timeline = check_same_different_person(timeline);
+
 timeline.push(instructions);
 timeline.push(practice_trial);
-timeline.push(instructions2);
+timeline.push(practice_end_instructions);
 timeline.push(trial);
+timeline = create_demographics(timeline);
 
+// run task
 jsPsych.init({
     timeline: timeline,
     on_finish: function () {
         document.body.style.backgroundColor = 'white';
-        var datasummary = summarize_data(); // summarize data
-        info_.tasks_completed.push(info_.uniquestudyid); // add uniquestudyid to info_
-        jsPsych.data.get().addToAll({ // add objects to all trials
-            info_: info_,
-            datasummary: datasummary,
-            total_time: datasummary.total_time,
+        var datasummary = summarize_data(); 
+
+        jsPsych.data.get().addToAll({ // add parameters to all trials
+            total_time: jsPsych.totalTime() / 60000,
             auc: datasummary.auc,
             stimuli_sides: stimuli_sides
+        });
+        jsPsych.data.get().first(1).addToAll({ 
+            info_: info_,
+            datasummary: datasummary,
         });
         if (debug) {
             jsPsych.data.displayData();
         }
-        sessionStorage.setObj('info_', info_); // save to sessionStorage
-        submit_data(jsPsych.data.get().json(), taskinfo.redirect_url); // save data to database and redirect
+        
+        info_.tasks_completed.push(taskinfo.uniquestudyid);
+        info_.current_task_completed = 1;
+        localStorage.setObj('info_', info_); 
+        submit_data(jsPsych.data.get().json(), taskinfo.redirect_url); 
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // functions to summarize data below
 function summarize_data() {

@@ -6,24 +6,29 @@ var express = require("express"),
     passport = require('passport'),
     LocalStrategy = require('passport-local'),
     path = require('path'),
+    favicon = require('serve-favicon'),
+    useragent = require('express-useragent'),
     User = require('./models/user'),
-    DataLibrary = require('./models/datalibrary')
-    helper = require('./routes/helpers/helpers');
+    DataLibrary = require('./models/datalibrary'),
+    helper = require('./routes/helpers/helpers')
 
 var showRoutes = require('./routes/show'),
     indexRoutes = require('./routes/index'),
     datalibraryRoutes = require('./routes/datalibrary'),
     vizRoutes = require('./routes/viz'),
-    authRoutes = require('./routes/auth')
+    authRoutes = require('./routes/auth'),
     downloadsRoutes = require('./routes/downloads'),
     deleteRoutes = require('./routes/delete')
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: true}));
+// limit parameter required to send larger json files
+// https://stackoverflow.com/questions/19917401/error-request-entity-too-large
+app.use(bodyParser.json({limit: '50mb'}));
+app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
 app.use(express.json());
+app.use(useragent.express());
 app.set("view engine", "ejs"); // use ejs template engine for rendering
 
-var mongoDB = process.env.MONGODB_URI || "mongodb://localhost/datalibrary"; // TODO MAHAM (when deploying, simply set MONGODB_URI environment variable)
+var mongoDB = process.env.MONGODB_URI || "mongodb://localhost/datalibrary"; 
 mongoose.connect(mongoDB,
     { useUnifiedTopology: true, useNewUrlParser: true }, function (err) {
         if (err) { console.log('Not connected to database!'); } else {
@@ -51,6 +56,7 @@ app.use(function(req, res, next){
 });
 
 // // TELL EXPRESS TO USE THE FOLLOWING LIBRARIES/FILES
+app.use(favicon(__dirname + '/public/assets/img/favicon.ico')); // to show favicon
 app.use('/tasks', express.static(__dirname + "/tasks"));
 app.use('/surveys', express.static(__dirname + "/surveys"));
 app.use('/studies', express.static(__dirname + "/studies"));

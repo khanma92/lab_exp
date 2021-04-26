@@ -1,22 +1,24 @@
-const taskinfo = {
+// DEFINE TASK (REQUIRED)
+var taskinfo = {
     type: 'task', // 'task', 'survey', or 'study'
     uniquestudyid: 'stroop', // unique task id: must be IDENTICAL to directory name
-    desc: 'stroop', // brief description of task
+    description: 'stroop', // brief description of task
     condition: null, // experiment/task condition
-    redirect_url: false // set to false if no redirection required
+    redirect_url: "/tasks/stroop/viz" // set to false if no redirection required
 };
 
 var info_ = create_info_(taskinfo);  // initialize subject id and task parameters
-
-const debug = true;  // debug mode to print messages to console and display json data at the end
-const black_background = true; // if true, white text on black background
-var font_colour = 'black';
-if (black_background) {
-    document.body.style.backgroundColor = "black";
-    var font_colour = 'white';
+if (info_.subject && info_.time) {
+    taskinfo.redirect_url = taskinfo.redirect_url + '?id=' + info_.subject + '&time=' + info_.time;
 }
 
-// TASK PARAMETERS
+const debug = false;  // debug mode to print messages to console and display json data at the end
+const black_background = true; // if true, white text on black background
+var font_colour = "white";
+var background_colour = "black";
+set_colour(font_colour, background_colour);
+
+// DEFINE TASK PARAMETERS (required)
 const adaptive = true;
 const no_incongruent_neighbors = false;
 var rt_deadline = 1500;
@@ -127,25 +129,41 @@ jsPsych.data.addProperties({
     subject: info_.subject,
     type: taskinfo.type,
     uniquestudyid: taskinfo.uniquestudyid,
-    desc: taskinfo.desc,
+    description: taskinfo.description,
     condition: taskinfo.condition,
     info_: info_,
 });
 
-// create experiment timeline
-var timeline = [];
-var n_trial = 0; // stroop trial number counter
-const html_path = "../../tasks/stroop/consent.html";
-timeline = create_consent(timeline, html_path);
 
+var n_trial = 0; // stroop trial number counter
 var instructions = {
     type: "instructions",
     pages: [
-        generate_html("Welcome!", font_colour) + generate_html("Click next or press the right arrow key to proceed.", font_colour),
-        generate_html("In this task, you'll have to select the correct font colour for each of the words shown.", font_colour) + generate_html("If you see red coloured text, press 'r'; if you see blue coloured text, press 'b'; if you see yellow coloured text, press 'y';", font_colour),
-        generate_html("For example, you'll see:", font_colour) + generate_html("red", "red") + generate_html("And the correct response would be pressing 'r'.", font_colour),
-        generate_html("You have a limited amount of time to respond to each prompted word, so react quickly!", font_colour),
-        generate_html("Next up is a practice trial.", font_colour) + generate_html("Your data will NOT be recorded.", font_colour) + generate_html("Click next or press the right arrow key to begin.", font_colour)
+        // new page
+        generate_html("Welcome!", font_colour) +
+        generate_html("Click next or press the right arrow key to proceed.", font_colour),
+        generate_html("In this task, you'll have to indicate the <u>font color</u> of different words.", font_colour) +
+        generate_html("You should ignore the word itself and focus on only the <u>font color</u>.", font_colour),
+
+        // new page
+        generate_html("If you see red text, press R (red).", 'red') +
+        generate_html("If you see blue text, press B (blue).", 'blue') +
+        generate_html("If you see yellow text, press Y (yellow).", 'yellow'), 
+        
+        // new page
+        generate_html("For example, if you see the text below", font_colour) +
+        generate_html("blue", "red") +
+        generate_html("You should press the R (red) key.", font_colour),
+
+        // new page
+        generate_html("If you see the text below", font_colour) +
+        generate_html("yellow", "blue") +
+        generate_html("You should press the B (blue) key.", font_colour),
+        
+        // new page
+        generate_html("You have a limited amount of time to respond to each word, so respond as quickly as possible!", font_colour),
+        generate_html("Let's practice.", font_colour) +
+        generate_html("Click next or press the right arrow key to begin.", font_colour)
     ],
     show_clickable_nav: true,
     show_page_number: true,
@@ -154,7 +172,8 @@ var instructions = {
 var instructions2 = {
     type: "instructions",
     pages: [
-        generate_html("That was the practice trial.", font_colour) + generate_html("Click next or press the right arrow key to begin the experiment.", font_colour) + generate_html("Your data WILL be recorded this time.", font_colour)
+        generate_html("You've finished practicing.", font_colour) +
+        generate_html("Click next or press the right arrow key to begin the actual task.", font_colour)
     ],
     show_clickable_nav: true,
     show_page_number: false,
@@ -239,6 +258,7 @@ var stimulus = {
         current_iti = random_choice(itis);  // select an iti for this trial (to be presented later)
         data.iti = current_iti; // save iti in data
     },
+    post_trial_gap: function () { return current_iti },  // present iti after one timeline/trial
 }
 
 var feedback = { // if correct (acc > 0), "correct, 456 ms"; if wrong (acc < 1), "wrong, 600 ms"; if no response (rt === null && acc < 1), "respond faster"
@@ -259,7 +279,7 @@ var feedback = { // if correct (acc > 0), "correct, 456 ms"; if wrong (acc < 1),
     choices: jsPsych.NO_KEYS,
     trial_duration: feedback_duration,
     data: { event: "feedback" },
-    post_trial_gap: function () { return current_iti },  // present iti after one timeline/trial
+    post_trial_gap: 500
 }
 
 var trial_sequence = {
@@ -278,26 +298,40 @@ var practice_trial_sequence = {
     timeline_variables: practice_stimuli_shuffled, // the above timeline/trial is repeated stimuli_shuffled.length times
 };
 
-// create task timeline
+
+
+
+
+
+// create timeline and events/objects for study (the first next lines are always the same! consent then check whether it's same person)
+var timeline = [];
+timeline = create_consent(timeline, taskinfo);
+timeline = check_same_different_person(timeline);
+
 timeline.push(instructions, practice_trial_sequence, instructions2, trial_sequence);
+timeline = create_demographics(timeline);
 
 jsPsych.init({
     timeline: timeline,
     on_finish: function () {
         document.body.style.backgroundColor = 'white';
         var datasummary = create_datasummary();
-        info_.tasks_completed.push(info_.uniquestudyid); // add uniquestudyid to info_
-        console.log(datasummary);
-        jsPsych.data.get().addToAll({ // add objects to all trials
+        
+        jsPsych.data.get().addToAll({
+            total_time: jsPsych.totalTime() / 60000,
+        });
+        jsPsych.data.get().first(1).addToAll({
             info_: info_,
             datasummary: datasummary,
-            total_time: datasummary.total_time,
         });
         if (debug) {
             jsPsych.data.displayData();
         }
-        sessionStorage.setObj('info_', info_); // save to sessionStorage
-        submit_data(jsPsych.data.get().json(), false);
+
+        info_.tasks_completed.push(info_.uniquestudyid); // add uniquestudyid to info_
+        info_.current_task_completed = 1;
+        localStorage.setObj('info_', info_); // save to localStorage
+        submit_data(jsPsych.data.get().json(), taskinfo.redirect_url);
     }
 });
 
@@ -361,8 +395,9 @@ function create_datasummary() {
     datasummary.forEach(function (s) {
         s.subject = info_.subject;
         s.time = info_.time;
-        s.country_code = info_.country_code;
-        s.country_name = info_.country_name;
+        s.country_code = info_.demographics.country_code;
+        s.country = info_.demographics.country;
+        s.total_time = jsPsych.totalTime() / 60000;
     })
 
     return datasummary

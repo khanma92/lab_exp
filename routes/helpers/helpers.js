@@ -57,6 +57,11 @@ function deleteData(datalibrary, doc) {
 }
 
 function cssFix(req, res, page, code) {
+    var referrer = req.get('Referer'); // referrer (click)
+    if (referrer === undefined) {  // keyboard entry
+        referrer = "/";
+    }
+    console.log('helper.js cssFix - referring page: ' + referrer);
     if (code === undefined) {
         var code = 200;
     }
@@ -64,7 +69,8 @@ function cssFix(req, res, page, code) {
     var c = "../".repeat(c);
     const c1 = c + "public/assets/css/loaders/loader-typing.css";
     const c2 = c + "public/assets/css/theme.css";                
-    res.status(code).render(page, { c1: c1, c2: c2 });
+    res.status(code).render(page, { c1: c1, c2: c2, referrer: referrer});
+    // res.redirect('back'); // redirects the request back to the referer, defaulting to / when the referer is missing
 }
 
 function deepCopy(obj) {
@@ -89,4 +95,25 @@ function deepCopy(obj) {
     }
 }
 
-module.exports = { json2csv, doc2datastring, deleteData, pick, deepCopy, cssFix }
+function getParentPath(req) {
+    // https://stackoverflow.com/questions/12525928/how-to-get-request-path-with-express-req-object
+    var reqpath = req.baseUrl + req.path;
+    const strmatches = [...reqpath.matchAll("/")];
+    const idx = strmatches[strmatches.length - 1].index;
+    return reqpath.slice(0, idx);
+}
+
+function matchData(req, array) {
+    if (req.query.id && req.query.time) {
+        for (i = 0; i < array.length; i++) {
+            if (array[i].subject == req.query.id && array[i].time == req.query.time) {
+                array[i].match = true
+            } else {
+                array[i].match = false
+            }
+        }
+    }
+    return array
+}
+
+module.exports = { json2csv, doc2datastring, deleteData, pick, deepCopy, cssFix, getParentPath, matchData }
